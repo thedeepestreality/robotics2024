@@ -11,7 +11,7 @@ kp = 40.0
 kd = 8.0
 ki = 40.0
 
-maxTime = 10
+maxTime = 5
 logTime = np.arange(0.0, maxTime, dt)
 sz = len(logTime)
 logPos = np.zeros(sz)
@@ -39,8 +39,8 @@ print(f"poles theor: {poles}")
 poles_fact = np.linalg.eig(A+B@K)
 print(f"poles fact: {poles_fact}")
 
-Q = np.diag([100,1])
-R = 0.1
+Q = np.diag([0.1,0.1])
+R = 100
 K, *_ = lqr(A, B, Q, R)
 K = -K
 print(f"lqr: {K}")
@@ -48,7 +48,7 @@ print(f"poles lqr:{np.linalg.eig(A+B@K)}")
 
 physicsClient = p.connect(p.DIRECT) # or p.DIRECT for non-graphical version
 # p.setAdditionalSearchPath(pybullet_data.getDataPath())
-p.setGravity(0,0,-10)
+p.setGravity(0,0,-g)
 # planeId = p.loadURDF("plane.urdf")
 boxId = p.loadURDF("./simple.urdf", useFixedBase=True)
 
@@ -67,12 +67,22 @@ for t in logTime[1:]:
     jointState = p.getJointState(boxId, 1)
     q = jointState[0]
     dq = jointState[1]
+
+    linkState = p.getLinkState(boxId, linkIndex=2)
+    xSim2 = linkState[0][0]
+    zSim2 = linkState[0][2]
+    print(f"SIMUL2: {xSim2} {zSim2}")
+
     e = q - qd
     e_int += e*dt
     v = -kp*e - kd*dq - ki*e_int
 
     # static linear regulator
     v = -K[0,0]*e - K[0,1]*dq
+
+    # feedback linearization
+    u = -kp*e - kd*dq - ki*e_int
+    v = (a*np.sin(q) + c*dq - u)/b
 
     # p.setJointMotorControl2(bodyIndex=boxId, jointIndex=1, targetVelocity=v, controlMode=p.VELOCITY_CONTROL)
     p.setJointMotorControl2(bodyIndex=boxId, jointIndex=1, force=v, controlMode=p.TORQUE_CONTROL)
